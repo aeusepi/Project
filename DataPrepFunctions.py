@@ -6,7 +6,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, mean_squared_error
 import matplotlib.pyplot as plt
-
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import GridSearchCV
 
 def clean_data(df,var2predict,col2exclude):
     '''
@@ -27,7 +28,7 @@ def clean_data(df,var2predict,col2exclude):
     5. For each numeric variable in X, fill the column with the mean value of the column.
     6. Create dummy columns for all the categorical variables in X, drop the original columns
     '''
-    # Drop rows with missing salary values
+    # Drop rows with missing salary values the data we want to predict
     df = df.dropna(subset=[var2predict], axis=0)
     y = df[var2predict]
     
@@ -136,3 +137,83 @@ def coef_weights(lm_model, X_train):
     coefs_df = coefs_df.sort_values('abs_coefs', ascending=False)
     
     return coefs_df
+
+### Let's see what be the best number of features to use based on the test set performance
+def find_optimal_rf_mod(X, y, cutoffs, test_size = .30, random_state=42, plot=True, param_grid=None):
+    '''
+    INPUT
+    X - pandas dataframe, X matrix
+    y - pandas dataframe, response variable
+    cutoffs - list of ints, cutoff for number of non-zero values in dummy categorical vars
+    test_size - float between 0 and 1, default 0.3, determines the proportion of data as test data
+    random_state - int, default 42, controls random state for train_test_split
+    plot - boolean, default 0.3, True to plot result
+    kwargs - include the arguments you want to pass to the rf model
+    param_grid are the parameters that neeed to be selected otherwise normal random forest
+    params = {'n_estimators': [10, 100, 1000], 'max_depth': [1, 5, 10, 100]}
+    
+    OUTPUT
+    r2_scores_test - list of floats of r2 scores on the test data
+    r2_scores_train - list of floats of r2 scores on the train data
+    rf_model - model object from sklearn
+    X_train, X_test, y_train, y_test - output from sklearn train test split used for optimal model
+    '''
+
+    r2_scores_test, r2_scores_train, num_feats, results = [], [], [], dict()
+    for cutoff in cutoffs:
+
+        #reduce X matrix
+        reduce_X = X.iloc[:, np.where((X.sum() > cutoff) == True)[0]]
+        num_feats.append(reduce_X.shape[1])
+
+        #split the data into train and test
+        X_train, X_test, y_train, y_test = train_test_split(reduce_X, y, test_size = test_size, random_state=random_state)
+
+        #fit the model and obtain pred response
+        if param_grid==None:
+            rf_model = RandomForestRegressor()  #no normalizing here, but could tune other hyperparameters
+
+        else:
+            rf_inst = RandomForestRegressor(n_jobs=-1, verbose=1)
+            rf_model = GridSearchCV(rf_inst, param_grid, n_jobs=-1) 
+            
+        rf_model.fit(X_train, y_train)
+        y_test_preds = rf_model.predict(X_test)
+        y_train_preds = rf_model.predict(X_train)
+
+        #append the r2 value from the test set
+        r2_scores_test.append(r2_score(y_test, y_test_preds))
+        r2_scores_train.append(r2_score(y_train, y_train_preds))
+        results[str(cutoff)] = r2_score(y_test, y_test_preds)
+
+    if plot:
+        plt.plot(num_feats, r2_scores_test, label="Test", alpha=.5)
+        plt.plot(num_feats, r2_scores_train, label="Train", alpha=.5)
+        plt.xlabel('Number of Features')
+        plt.ylabel('Rsquared')
+        plt.title('Rsquared by Number of Features')
+        plt.legend(loc=1)
+        plt.show()
+        
+    best_cutoff = max(results, key=results.get)
+
+    #reduce X matrix
+    reduce_X = X.iloc[:, np.where((X.sum() > int(best_cutoff)) == True)[0]]
+    num_feats.append(reduce_X.shape[1])
+
+    #split the data into train and test
+    X_train, X_test, y_train, y_test = train_test_split(reduce_X, y, test_size = test_size, random_state=random_state)
+
+    #fit the model
+    if param_grid==None:
+        rf_model = RandomForestRegressor()  #no normalizing here, but could tune other hyperparameters
+
+    else:
+        rf_inst = RandomForestRegressor(n_jobs=-1, verbose=1)
+        rf_model = GridSearchCV(rf_inst, param_grid, n_jobs=-1) 
+    rf_model.fit(X_train, y_train)
+     
+    return r2_scores_test, r2_scores_train, rf_model, X_train, X_test, y_train, y_test
+
+    from sklearn.model_selection import GridSearchCV
+
