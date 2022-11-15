@@ -151,7 +151,7 @@ def find_optimal_rf_mod(X, y, cutoffs, test_size = .30, random_state=42, plot=Tr
     kwargs - include the arguments you want to pass to the rf model
     param_grid are the parameters that neeed to be selected otherwise normal random forest
     params = {'n_estimators': [10, 100, 1000], 'max_depth': [1, 5, 10, 100]}
-    
+
     OUTPUT
     r2_scores_test - list of floats of r2 scores on the test data
     r2_scores_train - list of floats of r2 scores on the train data
@@ -215,5 +215,5 @@ def find_optimal_rf_mod(X, y, cutoffs, test_size = .30, random_state=42, plot=Tr
      
     return r2_scores_test, r2_scores_train, rf_model, X_train, X_test, y_train, y_test
 
-    from sklearn.model_selection import GridSearchCV
+
 
